@@ -13,6 +13,7 @@ class Deck(sim.Component):
                 press.activate()
                 break
         yield self.passivate()
+
         # Cutting
         self.enter(waitingLineCutting)
         for cutt in cutting:
@@ -20,11 +21,13 @@ class Deck(sim.Component):
                 cutt.activate()
                 break
         yield self.passivate()
+
         # Finishing
         self.enter(waitingLineFinishing)
         if finishing.ispassive():
             finishing.activate()
         yield self.passivate()
+
         # Painting
         self.enter(waitingLinePainting)
         if painting.ispassive():
@@ -34,7 +37,24 @@ class Deck(sim.Component):
 
 class Wheel(sim.Component):
     def process(self):
-        self.enter("")
+        # Foundry
+        self.enter(waitingLineFoundry)
+        if foundry.ispassive():
+            foundry.activate()
+        yield self.passivate()
+
+        # Machining
+        self.enter(waitingLineMachining)
+        for mach in machining:
+            if mach.ispassive():
+                mach.activate()
+            yield self.passivate()
+
+        # Printing
+        self.enter(waitingLinePrinting)
+        if printing.ispassive():
+            printing.activate()
+        yield self.passivate()
 
 
 class WheelGenerator(sim.Component):
@@ -99,12 +119,42 @@ class Painting(sim.Component):
             self.deck.activate()
 
 
+class Foundry(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLineFoundry) == 0:
+                yield self.passivate()
+            self.wheel = waitingLineFoundry.pop()
+            yield self.hold(55)
+            self.wheel.activate()
+
+
+class Machining(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLineMachining) == 0:
+                yield self.passivate()
+            self.wheel = waitingLineMachining.pop()
+            yield self.hold(60)
+            self.wheel.activate()
+
+
+class Printing(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLinePrinting) == 0:
+                yield self.passivate()
+            self.wheel = waitingLinePrinting.pop()
+            yield self.hold(20)
+            self.wheel.activate()
+
+
 env = sim.Environment(time_unit="minutes", trace=True)
 
-pranchas = (5280 + 8 * 440) / 22
-rodas = (5280 * 4 + 4 * 2640) / 22
 
 # Filas para pranchas
+pranchas = (5280 + 8 * 440) / 22
+
 waitingLinePressing = sim.Queue("Line for pressing")
 waitingLineCutting = sim.Queue("Line for cutting")
 waitingLineFinishing = sim.Queue("Line for finishing")
@@ -117,9 +167,14 @@ painting = Painting()
 lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(22)]
 
 # Filas para rodas
+rodas = (5280 * 4 + 4 * 2640) / 22
+
 waitingLineFoundry = sim.Queue("Line for foundry")
 waitingLineMachining = sim.Queue("Line for machining")
 waitingLinePrinting = sim.Queue("Line for printing")
+foundry = Foundry()
+machining = [Machining() for i in range(2)]
+printing = Printing()
 
 lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
 
@@ -128,3 +183,6 @@ waitingLinePressing.print_statistics()
 waitingLineCutting.print_statistics()
 waitingLineFinishing.print_statistics()
 waitingLinePainting.print_statistics()
+waitingLineFoundry.print_statistics()
+waitingLineMachining.print_statistics()
+waitingLinePrinting.print_statistics()
