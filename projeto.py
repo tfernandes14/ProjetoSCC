@@ -33,7 +33,19 @@ class Deck(sim.Component):
 
 
 class Wheel(sim.Component):
-    def setup
+    def process(self):
+        self.enter("")
+
+
+class WheelGenerator(sim.Component):
+    def setup(self, num_wheels):
+        self.num_wheels = num_wheels
+
+    def process(self):
+        while self.num_wheels > 0:
+            Wheel()
+            self.num_wheels -= 1
+            yield self.hold(sim.Uniform(200, 400).sample())
 
 
 class DeckGenerator(sim.Component):
@@ -88,8 +100,11 @@ class Painting(sim.Component):
 
 
 env = sim.Environment(time_unit="minutes", trace=True)
+
 pranchas = (5280 + 8 * 440) / 22
 rodas = (5280 * 4 + 4 * 2640) / 22
+
+# Filas para pranchas
 waitingLinePressing = sim.Queue("Line for pressing")
 waitingLineCutting = sim.Queue("Line for cutting")
 waitingLineFinishing = sim.Queue("Line for finishing")
@@ -98,7 +113,15 @@ pressing = [Pressing() for i in range(4)]
 cutting = [Cutting() for i in range(3)]
 finishing = Finishing()
 painting = Painting()
-lote_skates = [DeckGenerator(num_deck=pranchas) for i in range(22)]
+
+lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(22)]
+
+# Filas para rodas
+waitingLineFoundry = sim.Queue("Line for foundry")
+waitingLineMachining = sim.Queue("Line for machining")
+waitingLinePrinting = sim.Queue("Line for printing")
+
+lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
 
 env.run(200)  # 10560
 waitingLinePressing.print_statistics()
