@@ -1,26 +1,26 @@
-# Criar uma linha de montagem (pressing -> cutting -> ...)
 # No relatorio, incluir a distribuição usada
 # Nos varios processos, nao usar valores especificos no self.hold(...), usar distribuiçoes tipo uniforme
 # Em relaçao às storages, nao fazer como estamos a fazer, usar o sim.State()
 # Storage - self.hold(16h)
+# Quando a fabrica fecha, continua a fazer pressing e foundry
+# Dps das storages2 e 4, as coisas nao vao para lado nenhum
+# As coisas estao a funcionar bem para os decks mas nao para as rodas
+
 DAY = 1440
 END = 4320
+NUM_DIAS = 0
 
 import salabim as sim
 
 
-class SimulationManager:
-    def __init__(self):
-        num_dias = 0
-        while True:
-            if 480 + DAY * num_dias <= env.now() <= DAY * (num_dias + 1):  # 480 = 8h / 960 = 16h / 1440 = 24h
-                days.set(True)
-            else:
-                days.set(False)
-            if env.now() == DAY * (num_dias + 1):
-                num_dias += 1
-            if env.now() == END:
-                break
+def SimulationManager():
+    global DAY, NUM_DIAS
+    while True:
+        # 480 = 8h / 960 = 16h / 1440 = 24h
+        if env.now() == DAY * (NUM_DIAS + 1):
+            NUM_DIAS += 1
+        if env.now() == END:
+            break
 
 
 class Deck(sim.Component):
@@ -34,6 +34,8 @@ class Deck(sim.Component):
         yield self.passivate()
 
         # Storage 1
+        print("YOOOOO " + str((DAY * (NUM_DIAS + 1)) - env.now()))
+        print("NUM_DIAS: " + str(NUM_DIAS))
         self.enter(waitingLineStorage1)
         if storage1.ispassive():
             storage1.activate()
@@ -105,7 +107,12 @@ class WheelGenerator(sim.Component):
         self.num_wheels = num_wheels
 
     def process(self):
+        global DAY, NUM_DIAS
         while self.num_wheels > 0:
+            if env.now() >= DAY * (NUM_DIAS + 1):
+                NUM_DIAS += 1
+            if env.now() == END:
+                break
             Wheel()
             self.num_wheels -= 1
             yield self.hold(sim.Uniform(200, 400).sample())
@@ -116,7 +123,12 @@ class DeckGenerator(sim.Component):
         self.num_deck = num_deck
 
     def process(self):
+        global DAY, NUM_DIAS
         while self.num_deck > 0:
+            if env.now() >= DAY * (NUM_DIAS + 1):
+                NUM_DIAS += 1
+            if env.now() == END:
+                break
             Deck()
             self.num_deck -= 1
             yield self.hold(sim.Uniform(200, 400).sample())
@@ -137,8 +149,8 @@ class Storage1(sim.Component):
         while True:
             while len(waitingLineStorage1) == 0:
                 yield self.passivate()
-            yield self.wait(days)
             self.deck = waitingLineStorage1.pop()
+            yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
             self.deck.activate()
 
 
@@ -174,11 +186,12 @@ class Painting(sim.Component):
 
 class Storage2(sim.Component):
     def process(self):
+        global DAY, NUM_DIAS
         while True:
             while len(waitingLineStorage2) == 0:
                 yield self.passivate()
-            yield self.wait(days)
             self.deck = waitingLineStorage2.pop()
+            yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
             self.deck.activate()
 
 
@@ -194,12 +207,11 @@ class Foundry(sim.Component):
 
 class Storage3(sim.Component):
     def process(self):
-        while True:
-            while len(waitingLineStorage3) == 0:
-                yield self.passivate()
-            yield self.wait(days)
-            self.deck = waitingLineStorage3.pop()
-            self.deck.activate()
+        while len(waitingLineStorage3) == 0:
+            yield self.passivate()
+        self.wheel = waitingLineStorage3.pop()
+        yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
+        self.wheel.activate()
 
 
 class Machining(sim.Component):
@@ -224,16 +236,14 @@ class Printing(sim.Component):
 
 class Storage4(sim.Component):
     def process(self):
-        while True:
-            while len(waitingLineStorage4) == 0:
-                yield self.passivate()
-            yield self.wait(days)
-            self.deck = waitingLineStorage4.pop()
-            self.deck.activate()
+        while len(waitingLineStorage4) == 0:
+            yield self.passivate()
+        self.wheel = waitingLineStorage4.pop()
+        yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
+        self.wheel.activate()
 
 
 env = sim.Environment(time_unit="minutes", trace=True)
-days = sim.State('days')
 
 # Filas para pranchas
 pranchas = (5280 + 8 * 440) / 22
@@ -270,15 +280,24 @@ storage4 = Storage4()
 lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
 
 env.run(END)  # 10560
-simulation = SimulationManager()
 waitingLinePressing.print_statistics()
+print()
 waitingLineStorage1.print_statistics()
+print()
 waitingLineCutting.print_statistics()
+print()
 waitingLineFinishing.print_statistics()
+print()
 waitingLinePainting.print_statistics()
+print()
 waitingLineStorage2.print_statistics()
+print()
 waitingLineFoundry.print_statistics()
+print()
 waitingLineStorage3.print_statistics()
+print()
 waitingLineMachining.print_statistics()
+print()
 waitingLinePrinting.print_statistics()
+print()
 waitingLineStorage4.print_statistics()
