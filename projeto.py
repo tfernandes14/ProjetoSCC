@@ -1,4 +1,7 @@
 # Criar uma linha de montagem (pressing -> cutting -> ...)
+# No relatorio, incluir a distribuição usada
+# Nos varios processos, nao usar valores especificos no self.hold(...), usar distribuiçoes tipo uniforme
+# Em relaçao às storages, nao fazer como estamos a fazer, usar o sim.State()
 # Storage - self.hold(16h)
 
 import salabim as sim
@@ -12,6 +15,12 @@ class Deck(sim.Component):
             if press.ispassive():
                 press.activate()
                 break
+        yield self.passivate()
+
+        # Storage 1
+        self.enter(waitingLineStorage1)
+        if storage1.ispassive():
+            storage1.activate()
         yield self.passivate()
 
         # Cutting
@@ -34,6 +43,12 @@ class Deck(sim.Component):
             painting.activate()
         yield self.passivate()
 
+        # Storage 2
+        self.enter(waitingLineStorage2)
+        if storage2.ispassive():
+            storage2.activate()
+        yield self.passivate()
+
 
 class Wheel(sim.Component):
     def process(self):
@@ -41,6 +56,12 @@ class Wheel(sim.Component):
         self.enter(waitingLineFoundry)
         if foundry.ispassive():
             foundry.activate()
+        yield self.passivate()
+
+        # Storage 3
+        self.enter(waitingLineStorage3)
+        if storage3.ispassive():
+            storage3.activate()
         yield self.passivate()
 
         # Machining
@@ -54,6 +75,12 @@ class Wheel(sim.Component):
         self.enter(waitingLinePrinting)
         if printing.ispassive():
             printing.activate()
+        yield self.passivate()
+
+        # Storage 4
+        self.enter(waitingLineStorage4)
+        if storage4.ispassive():
+            storage4.activate()
         yield self.passivate()
 
 
@@ -85,7 +112,18 @@ class Pressing(sim.Component):
             while len(waitingLinePressing) == 0:
                 yield self.passivate()
             self.deck = waitingLinePressing.pop()
-            yield self.hold(100)
+            yield self.hold(100)    # Este valor nao pode ser 100, usar uma distribuição qq
+            self.deck.activate()
+
+
+class Storage1(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLineStorage1) == 0:
+                yield self.passivate()
+            self.deck = waitingLineStorage1.pop()
+            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
+                yield self.hold(960)
             self.deck.activate()
 
 
@@ -119,6 +157,17 @@ class Painting(sim.Component):
             self.deck.activate()
 
 
+class Storage2(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLineStorage2) == 0:
+                yield self.passivate()
+            self.deck = waitingLineStorage2.pop()
+            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
+                yield self.hold(960)
+            self.deck.activate()
+
+
 class Foundry(sim.Component):
     def process(self):
         while True:
@@ -127,6 +176,17 @@ class Foundry(sim.Component):
             self.wheel = waitingLineFoundry.pop()
             yield self.hold(55)
             self.wheel.activate()
+
+
+class Storage3(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLineStorage3) == 0:
+                yield self.passivate()
+            self.deck = waitingLineStorage3.pop()
+            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
+                yield self.hold(960)
+            self.deck.activate()
 
 
 class Machining(sim.Component):
@@ -149,20 +209,35 @@ class Printing(sim.Component):
             self.wheel.activate()
 
 
-env = sim.Environment(time_unit="minutes", trace=True)
+class Storage4(sim.Component):
+    def process(self):
+        while True:
+            while len(waitingLineStorage4) == 0:
+                yield self.passivate()
+            self.deck = waitingLineStorage4.pop()
+            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
+                yield self.hold(960)
+            self.deck.activate()
 
+
+env = sim.Environment(time_unit="minutes", trace=True)
+days = sim.State('days')
 
 # Filas para pranchas
 pranchas = (5280 + 8 * 440) / 22
 
 waitingLinePressing = sim.Queue("Line for pressing")
+waitingLineStorage1 = sim.Queue("Storage 1")
 waitingLineCutting = sim.Queue("Line for cutting")
 waitingLineFinishing = sim.Queue("Line for finishing")
 waitingLinePainting = sim.Queue("Line for painting")
+waitingLineStorage2 = sim.Queue("Storage 2")
 pressing = [Pressing() for i in range(4)]
+storage1 = Storage1()
 cutting = [Cutting() for i in range(3)]
 finishing = Finishing()
 painting = Painting()
+storage2 = Storage2()
 
 lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(22)]
 
@@ -170,19 +245,27 @@ lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(22)]
 rodas = (5280 * 4 + 4 * 2640) / 22
 
 waitingLineFoundry = sim.Queue("Line for foundry")
+waitingLineStorage3 = sim.Queue("Storage 3")
 waitingLineMachining = sim.Queue("Line for machining")
 waitingLinePrinting = sim.Queue("Line for printing")
+waitingLineStorage4 = sim.Queue("Storage 4")
 foundry = Foundry()
+storage3 = Storage3()
 machining = [Machining() for i in range(2)]
 printing = Printing()
+storage4 = Storage4()
 
 lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
 
-env.run(200)  # 10560
+env.run(4320)  # 10560
 waitingLinePressing.print_statistics()
+waitingLineStorage1.print_statistics()
 waitingLineCutting.print_statistics()
 waitingLineFinishing.print_statistics()
 waitingLinePainting.print_statistics()
+waitingLineStorage2.print_statistics()
 waitingLineFoundry.print_statistics()
+waitingLineStorage3.print_statistics()
 waitingLineMachining.print_statistics()
 waitingLinePrinting.print_statistics()
+waitingLineStorage4.print_statistics()
