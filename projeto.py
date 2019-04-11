@@ -3,8 +3,24 @@
 # Nos varios processos, nao usar valores especificos no self.hold(...), usar distribuiçoes tipo uniforme
 # Em relaçao às storages, nao fazer como estamos a fazer, usar o sim.State()
 # Storage - self.hold(16h)
+DAY = 1440
+END = 4320
 
 import salabim as sim
+
+
+class SimulationManager:
+    def __init__(self):
+        num_dias = 0
+        while True:
+            if 480 + DAY * num_dias <= env.now() <= DAY * (num_dias + 1):  # 480 = 8h / 960 = 16h / 1440 = 24h
+                days.set(True)
+            else:
+                days.set(False)
+            if env.now() == DAY * (num_dias + 1):
+                num_dias += 1
+            if env.now() == END:
+                break
 
 
 class Deck(sim.Component):
@@ -112,7 +128,7 @@ class Pressing(sim.Component):
             while len(waitingLinePressing) == 0:
                 yield self.passivate()
             self.deck = waitingLinePressing.pop()
-            yield self.hold(100)    # Este valor nao pode ser 100, usar uma distribuição qq
+            yield self.hold(100)  # Este valor nao pode ser 100, usar uma distribuição qq
             self.deck.activate()
 
 
@@ -121,9 +137,8 @@ class Storage1(sim.Component):
         while True:
             while len(waitingLineStorage1) == 0:
                 yield self.passivate()
+            yield self.wait(days)
             self.deck = waitingLineStorage1.pop()
-            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
-                yield self.hold(960)
             self.deck.activate()
 
 
@@ -162,9 +177,8 @@ class Storage2(sim.Component):
         while True:
             while len(waitingLineStorage2) == 0:
                 yield self.passivate()
+            yield self.wait(days)
             self.deck = waitingLineStorage2.pop()
-            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
-                yield self.hold(960)
             self.deck.activate()
 
 
@@ -183,9 +197,8 @@ class Storage3(sim.Component):
         while True:
             while len(waitingLineStorage3) == 0:
                 yield self.passivate()
+            yield self.wait(days)
             self.deck = waitingLineStorage3.pop()
-            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
-                yield self.hold(960)
             self.deck.activate()
 
 
@@ -214,9 +227,8 @@ class Storage4(sim.Component):
         while True:
             while len(waitingLineStorage4) == 0:
                 yield self.passivate()
+            yield self.wait(days)
             self.deck = waitingLineStorage4.pop()
-            if 480 <= env.now() <= 1440 or 1920 <= env.now() <= 2880 or 3360 <= env.now() <= 4320:  # 480 = 8h / 960 = 16h / 1440 = 24h
-                yield self.hold(960)
             self.deck.activate()
 
 
@@ -257,7 +269,8 @@ storage4 = Storage4()
 
 lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
 
-env.run(4320)  # 10560
+env.run(END)  # 10560
+simulation = SimulationManager()
 waitingLinePressing.print_statistics()
 waitingLineStorage1.print_statistics()
 waitingLineCutting.print_statistics()
