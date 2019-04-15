@@ -1,3 +1,4 @@
+# coding=utf-8
 # No relatorio, incluir a distribuição usada
 # Nos varios processos, nao usar valores especificos no self.hold(...), usar distribuiçoes tipo uniforme
 # Em relaçao às storages, nao fazer como estamos a fazer, usar o sim.State()
@@ -76,6 +77,7 @@ class Wheel(sim.Component):
             foundry.activate()
         yield self.passivate()
 
+
         # Storage 3
         self.enter(waitingLineStorage3)
         if storage3.ispassive():
@@ -87,10 +89,13 @@ class Wheel(sim.Component):
         for mach in machining:
             if mach.ispassive():
                 mach.activate()
+                break
             yield self.passivate()
 
+        print("MISTERIO")
         # Printing
         self.enter(waitingLinePrinting)
+        print("CHEGUEI")
         if printing.ispassive():
             printing.activate()
         yield self.passivate()
@@ -111,6 +116,7 @@ class WheelGenerator(sim.Component):
         while self.num_wheels > 0:
             if env.now() >= DAY * (NUM_DIAS + 1):
                 NUM_DIAS += 1
+                print("done")
             if env.now() == END:
                 break
             Wheel()
@@ -207,11 +213,13 @@ class Foundry(sim.Component):
 
 class Storage3(sim.Component):
     def process(self):
-        while len(waitingLineStorage3) == 0:
-            yield self.passivate()
-        self.wheel = waitingLineStorage3.pop()
-        yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
-        self.wheel.activate()
+        global DAY, NUM_DIAS
+        while True:
+            while len(waitingLineStorage3) == 0:
+                yield self.passivate()
+            self.wheel = waitingLineStorage3.pop()
+            yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
+            self.wheel.activate()
 
 
 class Machining(sim.Component):
@@ -226,6 +234,7 @@ class Machining(sim.Component):
 
 class Printing(sim.Component):
     def process(self):
+        print("DUHHH")
         while True:
             while len(waitingLinePrinting) == 0:
                 yield self.passivate()
@@ -236,11 +245,12 @@ class Printing(sim.Component):
 
 class Storage4(sim.Component):
     def process(self):
-        while len(waitingLineStorage4) == 0:
-            yield self.passivate()
-        self.wheel = waitingLineStorage4.pop()
-        yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
-        self.wheel.activate()
+        while True:
+            while len(waitingLineStorage4) == 0:
+                yield self.passivate()
+            self.wheel = waitingLineStorage4.pop()
+            yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
+            self.wheel.activate()
 
 
 env = sim.Environment(time_unit="minutes", trace=True)
@@ -280,6 +290,7 @@ storage4 = Storage4()
 lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
 
 env.run(END)  # 10560
+
 waitingLinePressing.print_statistics()
 print()
 waitingLineStorage1.print_statistics()
@@ -292,6 +303,7 @@ waitingLinePainting.print_statistics()
 print()
 waitingLineStorage2.print_statistics()
 print()
+
 waitingLineFoundry.print_statistics()
 print()
 waitingLineStorage3.print_statistics()
@@ -301,3 +313,4 @@ print()
 waitingLinePrinting.print_statistics()
 print()
 waitingLineStorage4.print_statistics()
+
