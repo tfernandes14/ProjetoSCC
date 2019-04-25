@@ -3,6 +3,10 @@
 # Dps das storages 2 e 4, as coisas nao vao para lado nenhum
 # As coisas estao a funcionar bem para os decks mas nao para as rodas (foundry da asneiras)
 
+
+"""while (fila de espera) > 0:
+    fila.pop()"""
+
 DAY = 1440
 END = 4320
 NUM_DIAS = 0
@@ -16,13 +20,13 @@ class SimulationManager(sim.Component):
         print("SIMULATION MANAGER BROOO")
         while True:
             # 480 = 8h / 960 = 16h / 1440 = 24h
-            if 480 + DAY * NUM_DIAS > env.now() or DAY * (NUM_DIAS + 1) < env.now():    # Intervalo de horas que se trabalha
+            if 480 + DAY * NUM_DIAS > env.now() or DAY * (NUM_DIAS + 1) < env.now():  # Intervalo de horas que se trabalha
                 print("TOCA A TRABALHAR BROOO")
-                trabalho.set(value='trabalhar')
+                trabalho.set(value=True)
                 yield self.hold(60)
             elif 480 + DAY * NUM_DIAS <= env.now() <= DAY * (NUM_DIAS + 1):
                 print("VAO DORMIR MALTINHA")
-                trabalho.set(value='nao')
+                trabalho.set(value=False)
                 yield self.hold(60)
             if env.now() == DAY * (NUM_DIAS + 1):
                 NUM_DIAS += 1
@@ -42,11 +46,9 @@ class Deck(sim.Component):
         yield self.passivate()
 
         # Storage 1
-        print("YOOOOO " + str((DAY * (NUM_DIAS + 1)) - env.now()))
-        print("NUM_DIAS: " + str(NUM_DIAS))
+        """print("YOOOOO " + str((DAY * (NUM_DIAS + 1)) - env.now()))
+        print("NUM_DIAS: " + str(NUM_DIAS))"""
         self.enter(waitingLineStorage1)
-        if storage1.ispassive():
-            storage1.activate()
         yield self.passivate()
 
         # Cutting
@@ -71,8 +73,7 @@ class Deck(sim.Component):
 
         # Storage 2
         self.enter(waitingLineStorage2)
-        if storage2.ispassive():
-            storage2.activate()
+        storage2.activate()
         yield self.passivate()
 
 
@@ -86,8 +87,7 @@ class Wheel(sim.Component):
 
         # Storage 3
         self.enter(waitingLineStorage3)
-        if storage3.ispassive():
-            storage3.activate()
+        storage3.activate()
         yield self.passivate()
 
         # Machining
@@ -96,20 +96,17 @@ class Wheel(sim.Component):
             if mach.ispassive():
                 mach.activate()
                 break
-            yield self.passivate()
+        yield self.passivate()
 
-        print("MISTERIO")
         # Printing
         self.enter(waitingLinePrinting)
-        print("CHEGUEI")
         if printing.ispassive():
             printing.activate()
         yield self.passivate()
 
         # Storage 4
         self.enter(waitingLineStorage4)
-        if storage4.ispassive():
-            storage4.activate()
+        storage4.activate()
         yield self.passivate()
 
 
@@ -122,7 +119,6 @@ class WheelGenerator(sim.Component):
         while self.num_wheels > 0:
             Wheel()
             self.num_wheels -= 1
-            yield self.hold(sim.Uniform(200, 400).sample())
 
 
 class DeckGenerator(sim.Component):
@@ -134,7 +130,7 @@ class DeckGenerator(sim.Component):
         while self.num_deck > 0:
             Deck()
             self.num_deck -= 1
-            yield self.hold(sim.Uniform(200, 400).sample())
+
 
 # ---------------------------------------------------- DECK ------------------------------------------------------------
 
@@ -144,25 +140,27 @@ class Pressing(sim.Component):
         while True:
             while len(waitingLinePressing) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.deck = waitingLinePressing.pop()
                 yield self.hold(100)  # Este valor nao pode ser 100, usar uma distribuição qq
                 self.deck.activate()
             else:
-                yield self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Storage1(sim.Component):
     def process(self):
+        aux = []
         while True:
-            while len(waitingLineStorage1) == 0:
-                yield self.passivate()
-            if trabalho.get() == 'trabalhar':
-                self.deck = waitingLineStorage1.pop()
+            if trabalho.get() is False:
+                while len(waitingLineStorage1) > 0:
+                    self.deck = waitingLineStorage1.pop()
+                    aux.append(self.deck)
                 yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
-                self.deck.activate()
+                for i in aux:
+                    i.activate()
             else:
-                yield self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, False))
 
 
 class Cutting(sim.Component):
@@ -170,12 +168,12 @@ class Cutting(sim.Component):
         while True:
             while len(waitingLineCutting) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.deck = waitingLineCutting.pop()
                 yield self.hold(60)
                 self.deck.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Finishing(sim.Component):
@@ -183,12 +181,12 @@ class Finishing(sim.Component):
         while True:
             while len(waitingLineFinishing) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.deck = waitingLineFinishing.pop()
                 yield self.hold(15)
                 self.deck.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Painting(sim.Component):
@@ -196,26 +194,28 @@ class Painting(sim.Component):
         while True:
             while len(waitingLinePainting) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.deck = waitingLinePainting.pop()
                 yield self.hold(20)
                 self.deck.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Storage2(sim.Component):
     def process(self):
-        global DAY, NUM_DIAS
+        print("CHEGUEI A STORAGE 2")
+        """aux = []
         while True:
-            while len(waitingLineStorage2) == 0:
-                yield self.passivate()
-            if trabalho.get() == 'trabalhar':
-                self.deck = waitingLineStorage2.pop()
+            if trabalho.get() is False:
+                while len(waitingLineStorage2) > 0:
+                    self.deck = waitingLineStorage2.pop()
+                    aux.append(self.deck)
                 yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
-                self.deck.activate()
+                for i in aux:
+                    i.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, False))"""
 
 
 # ---------------------------------------------------- WHEEL -----------------------------------------------------------
@@ -226,27 +226,27 @@ class Foundry(sim.Component):
         while True:
             while len(waitingLineFoundry) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.wheel = waitingLineFoundry.pop()
                 yield self.hold(55)
                 self.wheel.activate()
             else:
-                print("MEKIEEE TROPAA??")
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Storage3(sim.Component):
     def process(self):
-        global DAY, NUM_DIAS
+        aux = []
         while True:
-            while len(waitingLineStorage3) == 0:
-                yield self.passivate()
-            if trabalho.get() == 'trabalhar':
-                self.wheel = waitingLineStorage3.pop()
+            if trabalho.get() is False:
+                while len(waitingLineStorage3) > 0:
+                    self.deck = waitingLineStorage3.pop()
+                    aux.append(self.deck)
                 yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
-                self.wheel.activate()
+                for i in aux:
+                    i.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, False))
 
 
 class Machining(sim.Component):
@@ -254,12 +254,12 @@ class Machining(sim.Component):
         while True:
             while len(waitingLineMachining) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.wheel = waitingLineMachining.pop()
                 yield self.hold(60)
                 self.wheel.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Printing(sim.Component):
@@ -267,25 +267,28 @@ class Printing(sim.Component):
         while True:
             while len(waitingLinePrinting) == 0:
                 yield self.passivate()
-            if trabalho.get() == 'trabalhar':
+            if trabalho.get():
                 self.wheel = waitingLinePrinting.pop()
                 yield self.hold(20)
                 self.wheel.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, True))
 
 
 class Storage4(sim.Component):
     def process(self):
+        print("CHEGUEI A STORAGE 4")
+        """aux = []
         while True:
-            while len(waitingLineStorage4) == 0:
-                yield self.passivate()
-            if trabalho.get() == 'trabalhar':
-                self.wheel = waitingLineStorage4.pop()
+            if trabalho.get() is False:
+                while len(waitingLineStorage1) > 0:
+                    self.deck = waitingLineStorage1.pop()
+                    aux.append(self.deck)
                 yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
-                self.wheel.activate()
+                for i in aux:
+                    i.activate()
             else:
-                self.wait((trabalho, 'trabalhar'))
+                yield self.wait((trabalho, False))"""
 
 
 env = sim.Environment(time_unit="minutes", trace=True)
@@ -306,7 +309,7 @@ finishing = Finishing()
 painting = Painting()
 storage2 = Storage2()
 
-lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(22)]
+lote_decks = [DeckGenerator(num_deck=pranchas)]     # '''for _ in range(22)'''
 
 # Filas para rodas
 rodas = (5280 * 4 + 4 * 2640) / 22
@@ -322,9 +325,9 @@ machining = [Machining() for i in range(2)]
 printing = Printing()
 storage4 = Storage4()
 
-lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(22)]
+lote_rodas = [WheelGenerator(num_wheels=rodas)]      # o ciclo for pode ter logica '''for _ in range(22)'''
 
-trabalho = sim.State("trabalho", value='trabalhar')
+trabalho = sim.State("trabalho", value=True)
 gestor = SimulationManager()
 
 env.run(END)  # 10560
@@ -351,4 +354,3 @@ print()
 waitingLinePrinting.print_statistics()
 print()
 waitingLineStorage4.print_statistics()
-
