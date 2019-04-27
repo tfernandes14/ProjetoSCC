@@ -4,12 +4,13 @@
 # CORRER 24 FUCKING DIAS
 
 
-YO = 2
+YO = 22
 DAY = 1440
 END = 1440 * YO  # 4320
 NUM_DIAS = 0
 RODAS = 0
 DECKS = 0
+SKATES = 0
 
 import salabim as sim
 
@@ -26,25 +27,33 @@ class SimulationManager(sim.Component):
             finishingState.set(value=True)
             paintingState.set(value=True)
             storage2State.set(value=True)
+            exportDecksState.set(value=True)
 
             foundryState.set(value=True)
             storage3State.set(value=True)
             machiningState.set(value=True)
             printingState.set(value=True)
             storage4State.set(value=True)
+            exportWheelsState.set(value=True)
+
+            assemblySkatesState.set(value=True)
             yield self.hold(380)
             pressingState.set(value=False)
             yield self.hold(40)  # min 420 do dia
             cuttingState.set(value=False)
             machiningState.set(value=False)
-            yield self.hold(30)  # min 450
-
+            yield self.hold(5)  # min 425
+            foundryState.set(value=False)
+            yield self.hold(25)  # min 450
+            exportWheelsState.set(value=False)
+            assemblySkatesState.set(value=False)
             yield self.hold(10)  # min 460
             paintingState.set(value=False)
             printingState.set(value=False)
             yield self.hold(5)  # min 465
             finishingState.set(value=False)
             yield self.hold(5)  # min 470
+            exportDecksState.set(value=False)
 
             yield self.hold(10)  # min 480
             storage1State.set(value=False)
@@ -53,18 +62,6 @@ class SimulationManager(sim.Component):
             storage4State.set(value=False)
             yield self.hold(960)
             NUM_DIAS += 1
-
-            """if 480 + DAY * NUM_DIAS > env.now() or DAY * (NUM_DIAS + 1) < env.now():  # Intervalo de horas que se trabalha
-                print("TOCA A TRABALHAR BROOO")
-                trabalho.set(value=True)
-                yield self.hold(60)
-            elif 480 + DAY * NUM_DIAS <= env.now() <= DAY * (NUM_DIAS + 1):
-                print("VAO DORMIR MALTINHA")
-                trabalho.set(value=False)
-                yield self.hold(60)
-            if env.now() == DAY * (NUM_DIAS + 1):
-                NUM_DIAS += 1
-                yield self.hold(60)"""
             if env.now() == END:
                 break
 
@@ -82,7 +79,6 @@ class Deck(sim.Component):
 
         # Storage 1
         self.enter(waitingLineStorage1)
-        # storage1.activate()
         yield self.passivate()
 
         # Cutting
@@ -107,23 +103,60 @@ class Deck(sim.Component):
 
         # Storage 2
         self.enter(waitingLineStorage2)
-        # storage2.activate()
         yield self.passivate()
 
-        """# Decisão final
-        if DECKS % 10 == 0 or DECKS % 10 == 1 or DECKS % 10 == 2 or DECKS % 10 == 3 or DECKS % 10 == 4 or DECKS % 10 == 5:      # Vai para montagem de skates
+        # Decisão final
+        if DECKS % 10 == 0 or DECKS % 10 == 1 or DECKS % 10 == 2 or DECKS % 10 == 3 or DECKS % 10 == 4 or DECKS % 10 == 5:  # Vai para montagem de skates
             DECKS += 1
             print("MONTAGEM DOS SKATES")
             print("NUMERO DE DECKS POS FEITO:", DECKS)
-        else:         # Vai para exportação
-            DECKS += 1
-            self.enter(waitingLineExportDecks)
-            for exp in exportDecks:
-                if exp.ispassive():
-                    exp.activate()
-                    break
+            self.enter(waitingLineAssemblyDecks)
+            if skateWorker.ispassive():
+                skateWorker.activate()
             yield self.passivate()
-            print("NUMERO DE DECKS POS FEITO:", DECKS)"""
+        else:  # Vai para exportação
+            DECKS += 1
+            for i in range(2):
+                DeckBox()
+
+
+class Skate(sim.Component):
+    def process(self):
+        global SKATES
+        aux = []
+        print("PRE MONTAGEM SKATES")
+        while True:
+            while len(waitingLineAssemblyDecks) == 0 or len(waitingLineAssemblyWheels) == 0:
+                yield self.passivate()
+            if assemblySkatesState.get():
+                # print("A BARBARA CHEIRA A BACALHAU")
+                if len(waitingLineAssemblyDecks) >= 2 and len(waitingLineAssemblyWheels) >= 1:
+                    print("O TIAGO E GIRO")
+                    self.wheel = waitingLineAssemblyWheels.pop()
+                    for i in range(2):
+                        self.deck = waitingLineAssemblyDecks.pop()
+                        aux.append(self.deck)
+                    yield self.hold(30)
+                    if self.wheel.ispassive():
+                        self.wheel.activate()
+                    for i in aux:
+                        if i.ispassive():
+                            i.activate()
+                    SKATES += 48
+            else:
+                print("coco")
+                yield self.wait((assemblySkatesState, True))
+
+
+class DeckBox(sim.Component):
+    def process(self):
+        self.enter(waitingLineExportDecks)
+        for exp in exportDecks:
+            if exp.ispassive():
+                exp.activate()
+                break
+        yield self.passivate()
+        print("NUMERO DE DECKS POS FEITO:", DECKS)
 
 
 class Wheel(sim.Component):
@@ -137,7 +170,6 @@ class Wheel(sim.Component):
 
         # Storage 3
         self.enter(waitingLineStorage3)
-        # storage3.activate()
         yield self.passivate()
 
         # Machining
@@ -156,20 +188,29 @@ class Wheel(sim.Component):
 
         # Storage 4
         self.enter(waitingLineStorage4)
-        # storage4.activate()
         yield self.passivate()
 
         # Decisão final
-        """if RODAS % 10 == 0 or RODAS % 10 == 1 or RODAS % 10 == 2 or RODAS % 10 == 3 or RODAS % 10 == 4 or RODAS % 10 == 5:  # Vai para montagem de skates
+        if RODAS % 3 == 0 or RODAS % 3 == 1:  # Vai para montagem de skates
             RODAS += 1
             print("MONTAGEM DOS SKATES")
             print("NUMERO DE WHEELS POS FEITO:", RODAS)
+            self.enter(waitingLineAssemblyWheels)
+            if skateWorker.ispassive():
+                skateWorker.activate()
+            yield self.passivate()
         else:  # Vai para exportação
             RODAS += 1
-            self.enter(waitingLineExportWheels)
-            exportWheels.activate()
-            yield self.passivate()
-            print("NUMERO DE WHEELS POS FEITO:", RODAS)"""
+            for i in range(4):
+                WheelGroup()
+
+
+class WheelGroup(sim.Component):
+    def process(self):
+        self.enter(waitingLineExportWheels)
+        exportWheels.activate()
+        yield self.passivate()
+        print("NUMERO DE WHEELS POS FEITO:", RODAS)
 
 
 class WheelGenerator(sim.Component):
@@ -203,7 +244,8 @@ class Pressing(sim.Component):
             if pressingState.get():
                 self.deck = waitingLinePressing.pop()
                 yield self.hold(100)  # Este valor nao pode ser 100, usar uma distribuição qq
-                self.deck.activate()
+                if self.deck.ispassive():
+                    self.deck.activate()
             else:
                 yield self.wait((pressingState, True))
 
@@ -232,7 +274,8 @@ class Cutting(sim.Component):
             if cuttingState.get():
                 self.deck = waitingLineCutting.pop()
                 yield self.hold(60)
-                self.deck.activate()
+                if self.deck.ispassive():
+                    self.deck.activate()
             else:
                 yield self.wait((cuttingState, True))
 
@@ -245,7 +288,8 @@ class Finishing(sim.Component):
             if finishingState.get():
                 self.deck = waitingLineFinishing.pop()
                 yield self.hold(15)
-                self.deck.activate()
+                if self.deck.ispassive():
+                    self.deck.activate()
             else:
                 yield self.wait((finishingState, True))
 
@@ -258,7 +302,8 @@ class Painting(sim.Component):
             if paintingState.get():
                 self.deck = waitingLinePainting.pop()
                 yield self.hold(20)
-                self.deck.activate()
+                if self.deck.ispassive():
+                    self.deck.activate()
             else:
                 yield self.wait((paintingState, True))
 
@@ -280,19 +325,19 @@ class Storage2(sim.Component):
                 yield self.wait((storage2State, False))
 
 
-"""class PackingDecks(sim.Component):
+class PackingDecks(sim.Component):
     def process(self):
         print("CHEGUEI A EXPORTAÇAO DE DECKS")
         while True:
+            while len(waitingLineExportDecks) == 0:
+                yield self.passivate()
             if exportDecksState.get():
-                while len(waitingLineExportDecks) == 0:
-                    yield self.passivate()
-                if len(waitingLineExportDecks) % 8 == 0:
-                    for i in range(8):
-                        self.deck = waitingLineExportDecks.pop()
-                        self.deck.activate()
+                self.deck = waitingLineExportDecks.pop()
+                yield self.hold(10)
+                if self.deck.ispassive():
+                    self.deck.activate()
             else:
-                yield self.wait((exportDecksState, True))"""
+                yield self.wait((exportDecksState, True))
 
 
 # ---------------------------------------------------- WHEEL -----------------------------------------------------------
@@ -306,7 +351,8 @@ class Foundry(sim.Component):
             if foundryState.get():
                 self.wheel = waitingLineFoundry.pop()
                 yield self.hold(55)
-                self.wheel.activate()
+                if self.wheel.ispassive():
+                    self.wheel.activate()
             else:
                 yield self.wait((foundryState, True))
 
@@ -319,7 +365,6 @@ class Storage3(sim.Component):
                 while len(waitingLineStorage3) > 0:
                     self.wheel = waitingLineStorage3.pop()
                     aux.append(self.wheel)
-                print("$$$$$$$$$$$$$$$", env.now())
                 yield self.hold((DAY * (NUM_DIAS + 1)) - env.now())
                 for i in aux:
                     if i.ispassive():
@@ -336,7 +381,8 @@ class Machining(sim.Component):
             if machiningState.get():
                 self.wheel = waitingLineMachining.pop()
                 yield self.hold(60)
-                self.wheel.activate()
+                if self.wheel.ispassive():
+                    self.wheel.activate()
             else:
                 yield self.wait((machiningState, True))
 
@@ -349,7 +395,8 @@ class Printing(sim.Component):
             if printingState.get():
                 self.wheel = waitingLinePrinting.pop()
                 yield self.hold(20)
-                self.wheel.activate()
+                if self.wheel.ispassive():
+                    self.wheel.activate()
             else:
                 yield self.wait((printingState, True))
 
@@ -371,19 +418,19 @@ class Storage4(sim.Component):
                 yield self.wait((storage4State, False))
 
 
-"""class PackingWheels(sim.Component):
+class PackingWheels(sim.Component):
     def process(self):
         print("CHEGUEI A EXPORTAÇAO DE RODAS")
         while True:
-            if trabalho.get():
-                while len(waitingLineExportWheels) == 0:
-                    yield self.passivate()
-                if len(waitingLineExportWheels) % 4 == 0:
-                    for i in range(4):
-                        self.wheel = waitingLineExportWheels.pop()
-                        self.wheel.activate()
+            while len(waitingLineExportWheels) == 0:
+                yield self.passivate()
+            if exportWheelsState.get():
+                self.wheel = waitingLineExportWheels.pop()
+                yield self.hold(30)
+                if self.wheel.ispassive():
+                    self.wheel.activate()
             else:
-                yield self.wait((trabalho, True))"""
+                yield self.wait((exportWheelsState, True))
 
 # ------------------------------------------------ SIMULAÇÃO -----------------------------------------------------------
 
@@ -396,12 +443,12 @@ pranchas = (5280 + 8 * 440) / 22
 
 # Filas para pranchas
 waitingLinePressing = sim.Queue("Line for pressing")
-waitingLineStorage1 = sim.Queue("Storage 1")
+waitingLineStorage1 = sim.Queue("Line for Storage 1")
 waitingLineCutting = sim.Queue("Line for cutting")
 waitingLineFinishing = sim.Queue("Line for finishing")
 waitingLinePainting = sim.Queue("Line for painting")
-waitingLineStorage2 = sim.Queue("Storage 2")
-# waitingLineExportDecks = sim.Queue("Line for export decks")
+waitingLineStorage2 = sim.Queue("Line for Storage 2")
+waitingLineExportDecks = sim.Queue("Line for export decks")
 pressing = [Pressing() for i in range(4)]
 pressingState = sim.State("pressingState", value=True)
 storage1 = Storage1()
@@ -414,8 +461,8 @@ painting = Painting()
 paintingState = sim.State("paintingState", value=True)
 storage2 = Storage2()
 storage2State = sim.State("storage2State", value=True)
-# exportDecks = [PackingDecks() for i in range(2)]
-# exportDecksState = sim.State("exportDecksState", value=True)
+exportDecks = [PackingDecks() for i in range(2)]
+exportDecksState = sim.State("exportDecksState", value=True)
 
 lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(YO)]  # '''for _ in range(22)'''
 
@@ -425,11 +472,11 @@ rodas = (5280 * 4 + 4 * 2640) / 22  # Numero de rodas diarias
 
 # Filas e processos para as rodas
 waitingLineFoundry = sim.Queue("Line for foundry")
-waitingLineStorage3 = sim.Queue("Storage 3")
+waitingLineStorage3 = sim.Queue("Line for Storage 3")
 waitingLineMachining = sim.Queue("Line for machining")
 waitingLinePrinting = sim.Queue("Line for printing")
-waitingLineStorage4 = sim.Queue("Storage 4")
-# waitingLineExportWheels = sim.Queue("Line for export wheels")
+waitingLineStorage4 = sim.Queue("Line for Storage 4")
+waitingLineExportWheels = sim.Queue("Line for export wheels")
 foundry = Foundry()
 foundryState = sim.State("foundryState", value=True)
 storage3 = Storage3()
@@ -440,14 +487,17 @@ printing = Printing()
 printingState = sim.State("printingState", value=True)
 storage4 = Storage4()
 storage4State = sim.State("storage4State", value=True)
-# exportWheels = PackingWheels()
+exportWheels = PackingWheels()
+exportWheelsState = sim.State("exportWheelsState", value=True)
 
-lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(YO)]  # o ciclo for pode ter logica '''for _ in range(22)'''
+lote_rodas = [WheelGenerator(num_wheels=rodas) for i in range(YO)]      # o ciclo for pode ter logica '''for _ in range(22)'''
 
 # -------------------- PACKING OU ASSEMBLY --------------------
 
-waitingLineAssembly = sim.Queue("Line for assembly")
-# Falta aqui o assembly que sao 2
+waitingLineAssemblyWheels = sim.Queue("Line for assembly (Wheels)")
+waitingLineAssemblyDecks = sim.Queue("Line for assembly (Decks)")
+assemblySkatesState = sim.State("assemblySkatesState", value=True)
+skateWorker = Skate()
 
 gestor = SimulationManager()
 
@@ -465,6 +515,8 @@ waitingLinePainting.print_statistics()
 print()
 waitingLineStorage2.print_statistics()
 print()
+waitingLineExportDecks.print_statistics()
+print()
 
 waitingLineFoundry.print_statistics()
 print()
@@ -475,3 +527,11 @@ print()
 waitingLinePrinting.print_statistics()
 print()
 waitingLineStorage4.print_statistics()
+print()
+waitingLineExportWheels.print_statistics()
+
+print(end="\n\n")
+waitingLineAssemblyWheels.print_statistics()
+print()
+waitingLineAssemblyDecks.print_statistics()
+print("Número de skates feitos:", SKATES)
