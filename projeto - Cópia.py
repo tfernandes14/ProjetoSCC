@@ -11,8 +11,6 @@ NUM_DIAS = 0
 RODAS = 0
 DECKS = 0
 SKATES = 0
-CONJ_RODAS = 0
-CONJ_DECKS = 0
 
 import salabim as sim
 import matplotlib.pyplot as plt
@@ -140,7 +138,7 @@ class Skate(sim.Component):
                     for i in range(2):
                         self.deck = waitingLineAssemblyDecks.pop()
                         aux.append(self.deck)
-                    yield self.hold(30)
+                    yield self.hold(30)     # 30
                     if self.wheel.ispassive():
                         self.wheel.activate()
                     for i in aux:
@@ -248,7 +246,7 @@ class Pressing(sim.Component):
                 yield self.passivate()
             if pressingState.get():
                 self.deck = waitingLinePressing.pop()
-                yield self.hold(100)  # Este valor nao pode ser 100, usar uma distribuição qq
+                yield self.hold(100)  # 100
                 if self.deck.ispassive():
                     self.deck.activate()
             else:
@@ -278,7 +276,7 @@ class Cutting(sim.Component):
                 yield self.passivate()
             if cuttingState.get():
                 self.deck = waitingLineCutting.pop()
-                yield self.hold(60)
+                yield self.hold(60)     # 60
                 if self.deck.ispassive():
                     self.deck.activate()
             else:
@@ -292,7 +290,7 @@ class Finishing(sim.Component):
                 yield self.passivate()
             if finishingState.get():
                 self.deck = waitingLineFinishing.pop()
-                yield self.hold(15)
+                yield self.hold(15)     # 15
                 if self.deck.ispassive():
                     self.deck.activate()
             else:
@@ -306,7 +304,7 @@ class Painting(sim.Component):
                 yield self.passivate()
             if paintingState.get():
                 self.deck = waitingLinePainting.pop()
-                yield self.hold(20)
+                yield self.hold(20)     # 20
                 if self.deck.ispassive():
                     self.deck.activate()
             else:
@@ -332,17 +330,15 @@ class Storage2(sim.Component):
 
 class PackingDecks(sim.Component):
     def process(self):
-        global CONJ_DECKS
         print("CHEGUEI A EXPORTAÇAO DE DECKS")
         while True:
             while len(waitingLineExportDecks) == 0:
                 yield self.passivate()
             if exportDecksState.get():
                 self.deck = waitingLineExportDecks.pop()
-                yield self.hold(10)
+                yield self.hold(10)     # 10
                 if self.deck.ispassive():
                     self.deck.activate()
-                CONJ_DECKS += 1
             else:
                 yield self.wait((exportDecksState, True))
 
@@ -357,7 +353,7 @@ class Foundry(sim.Component):
                 yield self.passivate()
             if foundryState.get():
                 self.wheel = waitingLineFoundry.pop()
-                yield self.hold(55)
+                yield self.hold(55)     # 55
                 if self.wheel.ispassive():
                     self.wheel.activate()
             else:
@@ -387,7 +383,7 @@ class Machining(sim.Component):
                 yield self.passivate()
             if machiningState.get():
                 self.wheel = waitingLineMachining.pop()
-                yield self.hold(60)
+                yield self.hold(60)     # 60
                 if self.wheel.ispassive():
                     self.wheel.activate()
             else:
@@ -401,7 +397,7 @@ class Printing(sim.Component):
                 yield self.passivate()
             if printingState.get():
                 self.wheel = waitingLinePrinting.pop()
-                yield self.hold(20)
+                yield self.hold(20)     # 20
                 if self.wheel.ispassive():
                     self.wheel.activate()
             else:
@@ -427,28 +423,26 @@ class Storage4(sim.Component):
 
 class PackingWheels(sim.Component):
     def process(self):
-        global CONJ_RODAS
         print("CHEGUEI A EXPORTAÇAO DE RODAS")
         while True:
             while len(waitingLineExportWheels) == 0:
                 yield self.passivate()
             if exportWheelsState.get():
                 self.wheel = waitingLineExportWheels.pop()
-                yield self.hold(30)             # 30 - sim.Triangular(29, 31, 30).sample() - sim.Normal(20, 0.5).sample()
+                yield self.hold(30)             # 30 - sim.Triangular(29, 31, 30).sample() - sim.Normal(30, 0.5).sample()
                 if self.wheel.ispassive():
                     self.wheel.activate()
-                CONJ_RODAS += 1
             else:
                 yield self.wait((exportWheelsState, True))
 
 # ------------------------------------------------ SIMULAÇÃO -----------------------------------------------------------
 
 
-env = sim.Environment(time_unit="minutes", trace=False)
+env = sim.Environment(time_unit="minutes", trace=False, random_seed=7654321)
 
 # -------------------- DECKS --------------------
 
-pranchas = (5280 + 8 * 440) / 22
+pranchas = (5280 + 8 * 440) / YO
 
 # Filas para pranchas
 waitingLinePressing = sim.Queue("Line for pressing")
@@ -477,7 +471,7 @@ lote_decks = [DeckGenerator(num_deck=pranchas) for i in range(YO)]  # '''for _ i
 
 # -------------------- RODAS --------------------
 
-rodas = (5280 * 4 + 4 * 2640) / 22  # Numero de rodas diarias
+rodas = (5280 * 4 + 4 * 2640) / YO  # Numero de rodas diarias
 
 # Filas e processos para as rodas
 waitingLineFoundry = sim.Queue("Line for foundry")
@@ -545,8 +539,6 @@ waitingLineAssemblyWheels.print_statistics()
 
 print(end="\n\n")
 print("Número de skates feitos:", SKATES)
-print("Número de conjuntos de rodas: %d" % (CONJ_RODAS * 48 / 4))
-print("Número de conjuntos de decks: %d" % (CONJ_DECKS * 12 / 8))
 
 plt.figure(1)
 plt.plot(*waitingLinePressing.length.tx(), drawstyle="steps-post")
